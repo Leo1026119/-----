@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>貪食蛇遊戲</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+    <script src="app.js" defer></script>
+</head>
+<body>
+    <div class="container">
+        <h1>貪食蛇遊戲</h1>
+        <div class="game-container">
+            <canvas id="gameCanvas"></canvas>
+            <div class="game-info">
+                <div class="score">分數：<span id="score">0</span></div>
+                <button id="startBtn">開始遊戲</button>
+                <div class="controls">
+                    <p>操作方式：</p>
+                    <p>↑ ↓ ← → 或 WASD 控制方向</p>
+                    <p>空白鍵暫停</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
