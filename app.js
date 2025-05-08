@@ -1,3 +1,7 @@
+// GUN 初始化
+const gun = Gun(['https://gun-manhattan.herokuapp.com/gun']);
+const players = gun.get('snake-players');
+
 // 遊戲常數
 const GRID_SIZE = 20;
 const CELL_SIZE = 20;
@@ -6,31 +10,52 @@ const GAME_SPEED = 100;
 
 // 遊戲變數
 let canvas, ctx;
-let snake = [];
+let mySnake = [];
 let direction = 'right';
 let nextDirection = 'right';
 let food = null;
 let score = 0;
 let gameLoop = null;
 let isPaused = false;
+let playerId = Math.random().toString(36).substr(2, 9);
+let playerName = '';
+let otherPlayers = new Map();
 
 // DOM 元素
 const startBtn = document.getElementById('startBtn');
 const scoreElement = document.getElementById('score');
+const playerNameInput = document.getElementById('playerName');
+const playersList = document.getElementById('playersList');
+const playerCountElement = document.getElementById('playerCount');
+
+// 玩家名稱輸入處理
+playerNameInput.addEventListener('change', (e) => {
+    playerName = e.target.value;
+    if (playerName) {
+        startBtn.disabled = false;
+    } else {
+        startBtn.disabled = true;
+    }
+});
 
 // 初始化遊戲
 function initGame() {
+    if (!playerName) {
+        alert('請先輸入您的名字！');
+        return;
+    }
+
     canvas = document.getElementById('gameCanvas');
     canvas.width = GRID_SIZE * CELL_SIZE;
     canvas.height = GRID_SIZE * CELL_SIZE;
     ctx = canvas.getContext('2d');
     
     // 初始化蛇的位置
-    snake = [];
-    const startX = Math.floor(GRID_SIZE / 2);
-    const startY = Math.floor(GRID_SIZE / 2);
+    mySnake = [];
+    const startX = Math.floor(Math.random() * (GRID_SIZE - INITIAL_SNAKE_LENGTH));
+    const startY = Math.floor(Math.random() * GRID_SIZE);
     for (let i = 0; i < INITIAL_SNAKE_LENGTH; i++) {
-        snake.push({ x: startX - i, y: startY });
+        mySnake.push({ x: startX - i, y: startY });
     }
     
     // 生成第一個食物
@@ -50,6 +75,19 @@ function initGame() {
     
     // 更新按鈕狀態
     startBtn.textContent = '重新開始';
+    
+    // 廣播玩家加入
+    updatePlayerStatus();
+}
+
+// 更新玩家狀態
+function updatePlayerStatus() {
+    players.get(playerId).put({
+        name: playerName,
+        score: score,
+        snake: mySnake,
+        lastUpdate: Date.now()
+    });
 }
 
 // 生成食物
@@ -58,17 +96,28 @@ function generateFood() {
         const x = Math.floor(Math.random() * GRID_SIZE);
         const y = Math.floor(Math.random() * GRID_SIZE);
         
-        // 確保食物不會生成在蛇身上
+        // 確保食物不會生成在任何蛇身上
         let onSnake = false;
-        for (const segment of snake) {
+        for (const segment of mySnake) {
             if (segment.x === x && segment.y === y) {
                 onSnake = true;
                 break;
             }
         }
         
+        for (const [_, player] of otherPlayers) {
+            for (const segment of player.snake) {
+                if (segment.x === x && segment.y === y) {
+                    onSnake = true;
+                    break;
+                }
+            }
+        }
+        
         if (!onSnake) {
             food = { x, y };
+            // 廣播食物位置
+            gun.get('snake-food').put({ x, y });
             break;
         }
     }
@@ -82,7 +131,7 @@ function gameStep() {
     direction = nextDirection;
     
     // 計算新的頭部位置
-    const head = { ...snake[0] };
+    const head = { ...mySnake[0] };
     switch (direction) {
         case 'up': head.y--; break;
         case 'down': head.y++; break;
@@ -97,7 +146,7 @@ function gameStep() {
     }
     
     // 移動蛇
-    snake.unshift(head);
+    mySnake.unshift(head);
     
     // 檢查是否吃到食物
     if (head.x === food.x && head.y === food.y) {
@@ -105,8 +154,11 @@ function gameStep() {
         scoreElement.textContent = score;
         generateFood();
     } else {
-        snake.pop();
+        mySnake.pop();
     }
+    
+    // 更新玩家狀態
+    updatePlayerStatus();
     
     // 繪製遊戲畫面
     drawGame();
@@ -120,9 +172,18 @@ function isCollision(head) {
     }
     
     // 檢查自身碰撞
-    for (const segment of snake) {
+    for (const segment of mySnake) {
         if (head.x === segment.x && head.y === segment.y) {
             return true;
+        }
+    }
+    
+    // 檢查與其他玩家的碰撞
+    for (const [_, player] of otherPlayers) {
+        for (const segment of player.snake) {
+            if (head.x === segment.x && head.y === segment.y) {
+                return true;
+            }
         }
     }
     
@@ -135,15 +196,28 @@ function drawGame() {
     ctx.fillStyle = '#1a1a1a';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // 繪製蛇
+    // 繪製我的蛇
     ctx.fillStyle = '#4CAF50';
-    for (const segment of snake) {
+    for (const segment of mySnake) {
         ctx.fillRect(
             segment.x * CELL_SIZE,
             segment.y * CELL_SIZE,
             CELL_SIZE - 1,
             CELL_SIZE - 1
         );
+    }
+    
+    // 繪製其他玩家的蛇
+    for (const [id, player] of otherPlayers) {
+        ctx.fillStyle = `hsl(${hashCode(id) % 360}, 70%, 50%)`;
+        for (const segment of player.snake) {
+            ctx.fillRect(
+                segment.x * CELL_SIZE,
+                segment.y * CELL_SIZE,
+                CELL_SIZE - 1,
+                CELL_SIZE - 1
+            );
+        }
     }
     
     // 繪製食物
@@ -156,16 +230,76 @@ function drawGame() {
     );
 }
 
+// 生成玩家顏色的雜湊函數
+function hashCode(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return Math.abs(hash);
+}
+
 // 遊戲結束
 function gameOver() {
     clearInterval(gameLoop);
     gameLoop = null;
     alert('遊戲結束！您的分數是：' + score);
     startBtn.textContent = '開始遊戲';
+    // 移除玩家狀態
+    players.get(playerId).put(null);
 }
+
+// 更新玩家列表
+function updatePlayersList() {
+    playersList.innerHTML = '';
+    let count = 0;
+    for (const [id, player] of otherPlayers) {
+        const li = document.createElement('li');
+        li.innerHTML = `${player.name} <span class="player-score">${player.score}</span>`;
+        li.style.color = `hsl(${hashCode(id) % 360}, 70%, 50%)`;
+        playersList.appendChild(li);
+        count++;
+    }
+    if (gameLoop) count++; // 加上自己
+    playerCountElement.textContent = count;
+}
+
+// 監聽其他玩家
+players.map().on(function(data, id) {
+    if (id === playerId || !data) return;
+    
+    // 更新或添加玩家
+    if (data) {
+        otherPlayers.set(id, data);
+    } else {
+        otherPlayers.delete(id);
+    }
+    
+    // 更新玩家列表
+    updatePlayersList();
+});
+
+// 監聽食物位置更新
+gun.get('snake-food').on(function(data) {
+    if (data && !food) {
+        food = data;
+    }
+});
+
+// 清理離線玩家
+setInterval(() => {
+    const now = Date.now();
+    for (const [id, player] of otherPlayers) {
+        if (now - player.lastUpdate > 5000) { // 5秒沒有更新就視為離線
+            otherPlayers.delete(id);
+        }
+    }
+    updatePlayersList();
+}, 5000);
 
 // 事件監聽
 startBtn.addEventListener('click', initGame);
+startBtn.disabled = true;
 
 document.addEventListener('keydown', (event) => {
     // 方向鍵控制

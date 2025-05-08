@@ -3,14 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>貪食蛇遊戲</title>
+    <title>多人貪食蛇遊戲</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
     <script src="app.js" defer></script>
 </head>
 <body>
     <div class="container">
-        <h1>貪食蛇遊戲</h1>
+        <h1>多人貪食蛇遊戲</h1>
+        <div class="player-info">
+            <input type="text" id="playerName" placeholder="輸入您的名字" maxlength="10">
+            <div class="player-count">在線玩家：<span id="playerCount">0</span></div>
+        </div>
         <div class="game-container">
             <canvas id="gameCanvas"></canvas>
             <div class="game-info">
@@ -20,6 +24,10 @@
                     <p>操作方式：</p>
                     <p>↑ ↓ ← → 或 WASD 控制方向</p>
                     <p>空白鍵暫停</p>
+                </div>
+                <div class="players-list">
+                    <h3>在線玩家</h3>
+                    <ul id="playersList"></ul>
                 </div>
             </div>
         </div>
