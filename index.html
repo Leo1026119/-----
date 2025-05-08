@@ -16,18 +16,36 @@
             <div class="player-count">在線玩家：<span id="playerCount">0</span></div>
         </div>
         <div class="game-container">
-            <canvas id="gameCanvas"></canvas>
-            <div class="game-info">
-                <div class="score">分數：<span id="score">0</span></div>
-                <button id="startBtn">開始遊戲</button>
-                <div class="controls">
-                    <p>操作方式：</p>
-                    <p>↑ ↓ ← → 或 WASD 控制方向</p>
-                    <p>空白鍵暫停</p>
+            <div class="game-area">
+                <canvas id="gameCanvas"></canvas>
+                <div class="game-info">
+                    <div class="score">分數：<span id="score">0</span></div>
+                    <div class="high-score">最高分：<span id="highScore">0</span></div>
+                    <button id="startBtn">開始遊戲</button>
+                    <div class="controls">
+                        <p>操作方式：</p>
+                        <p>↑ ↓ ← → 或 WASD 控制方向</p>
+                        <p>空白鍵暫停</p>
+                    </div>
+                    <div class="players-list">
+                        <h3>在線玩家</h3>
+                        <ul id="playersList"></ul>
+                    </div>
                 </div>
-                <div class="players-list">
-                    <h3>在線玩家</h3>
-                    <ul id="playersList"></ul>
+            </div>
+            <div class="leaderboard">
+                <h2>排行榜</h2>
+                <div class="leaderboard-list">
+                    <table id="leaderboardTable">
+                        <thead>
+                            <tr>
+                                <th>排名</th>
+                                <th>玩家</th>
+                                <th>最高分數</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leaderboardBody"></tbody>
+                    </table>
                 </div>
             </div>
         </div>

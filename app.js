@@ -1,6 +1,7 @@
 // GUN 初始化
 const gun = Gun(['https://gun-manhattan.herokuapp.com/gun']);
 const players = gun.get('snake-players');
+const leaderboard = gun.get('snake-leaderboard');
 
 // 遊戲常數
 const GRID_SIZE = 20;
@@ -20,6 +21,7 @@ let isPaused = false;
 let playerId = Math.random().toString(36).substr(2, 9);
 let playerName = '';
 let otherPlayers = new Map();
+let highScore = 0;
 
 // DOM 元素
 const startBtn = document.getElementById('startBtn');
@@ -27,6 +29,8 @@ const scoreElement = document.getElementById('score');
 const playerNameInput = document.getElementById('playerName');
 const playersList = document.getElementById('playersList');
 const playerCountElement = document.getElementById('playerCount');
+const highScoreElement = document.getElementById('highScore');
+const leaderboardBody = document.getElementById('leaderboardBody');
 
 // 玩家名稱輸入處理
 playerNameInput.addEventListener('change', (e) => {
@@ -78,6 +82,14 @@ function initGame() {
     
     // 廣播玩家加入
     updatePlayerStatus();
+
+    // 載入玩家最高分
+    leaderboard.get(playerId).once((data) => {
+        if (data) {
+            highScore = data.score || 0;
+            highScoreElement.textContent = highScore;
+        }
+    });
 }
 
 // 更新玩家狀態
@@ -87,6 +99,53 @@ function updatePlayerStatus() {
         score: score,
         snake: mySnake,
         lastUpdate: Date.now()
+    });
+}
+
+// 更新排行榜
+function updateLeaderboard() {
+    if (score > highScore) {
+        highScore = score;
+        highScoreElement.textContent = highScore;
+        leaderboard.get(playerId).put({
+            name: playerName,
+            score: highScore,
+            lastUpdate: Date.now()
+        });
+    }
+}
+
+// 更新排行榜顯示
+function updateLeaderboardDisplay() {
+    const scores = [];
+    leaderboard.map().once((data, id) => {
+        if (data && data.name && data.score) {
+            scores.push({
+                id,
+                name: data.name,
+                score: data.score,
+                lastUpdate: data.lastUpdate
+            });
+        }
+    });
+
+    // 排序分數
+    scores.sort((a, b) => b.score - a.score);
+
+    // 更新顯示
+    leaderboardBody.innerHTML = '';
+    scores.slice(0, 10).forEach((player, index) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${index + 1}</td>
+            <td>${player.name}</td>
+            <td>${player.score}</td>
+        `;
+        if (player.id === playerId) {
+            row.style.backgroundColor = '#e8f5e9';
+            row.style.fontWeight = 'bold';
+        }
+        leaderboardBody.appendChild(row);
     });
 }
 
@@ -152,6 +211,7 @@ function gameStep() {
     if (head.x === food.x && head.y === food.y) {
         score += 10;
         scoreElement.textContent = score;
+        updateLeaderboard();
         generateFood();
     } else {
         mySnake.pop();
@@ -243,6 +303,7 @@ function hashCode(str) {
 function gameOver() {
     clearInterval(gameLoop);
     gameLoop = null;
+    updateLeaderboard();
     alert('遊戲結束！您的分數是：' + score);
     startBtn.textContent = '開始遊戲';
     // 移除玩家狀態
@@ -285,6 +346,14 @@ gun.get('snake-food').on(function(data) {
         food = data;
     }
 });
+
+// 監聽排行榜更新
+leaderboard.map().on(() => {
+    updateLeaderboardDisplay();
+});
+
+// 初始載入排行榜
+updateLeaderboardDisplay();
 
 // 清理離線玩家
 setInterval(() => {
